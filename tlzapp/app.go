@@ -41,15 +41,6 @@ import (
 
 var app *App
 
-func tlzAdminURL() string {
-	tlzAdminAddr := os.Getenv("TLZ_ADMIN_ADDR")
-	if tlzAdminAddr == "" {
-		return "http://localhost:12002"
-	}
-
-	return fmt.Sprintf("http://%s", tlzAdminAddr)
-}
-
 func (a *App) RunCommand(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no command specified")
@@ -279,7 +270,7 @@ func (a *App) serve(adminAddr string) error {
 
 func (a *App) serverRunning() bool {
 	// TODO: get URL from config?
-	req, err := http.NewRequestWithContext(a.ctx, http.MethodGet, tlzAdminURL(), nil)
+	req, err := http.NewRequestWithContext(a.ctx, http.MethodGet, "http://localhost:12002", nil)
 	if err != nil {
 		return false
 	}
