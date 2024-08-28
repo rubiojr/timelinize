@@ -71,13 +71,14 @@
 
 
 [output]
-    [[formats]]
-        format = "colored-line-number"
+    show-stats = true
     print-issued-lines = true
     print-linter-name = true
     uniq-by-line = true
     path-prefix = ""
     sort-results = true
+[[formats]]
+    format = "colored-line-number"
 
 [severity]
     default-severity = "error"
