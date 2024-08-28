@@ -29,6 +29,11 @@ jobs:
           sudo apt-get install -y libheif-dev libvips-dev
           sudo ldconfig
 
+      - name: downgrade heif
+        run: |
+          go get github.com/strukturag/libheif@v1.17.6
+          go mod tidy
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
