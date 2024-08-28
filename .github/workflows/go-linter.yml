@@ -18,6 +18,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+
+      - name: Install libraries (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        # install libheif (and dependency libde265) from the PPA which is more
+        # current; Ubuntu's is too old, resulting in failed compilation
+        run: |
+          sudo add-apt-repository ppa:strukturag/libheif
+          sudo add-apt-repository ppa:strukturag/libde265
+          sudo apt-get update
+          sudo apt-get install -y libheif-dev libvips-dev
+          sudo ldconfig
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
