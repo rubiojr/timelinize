@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+podman image list | grep timelinize-dev-image || {
+	podman build --squash --tag timelinize-dev-image .
+	toolbox create -i timelinize-dev-image timelinize-dev
+}
+
+toolbox enter timelinize-dev
