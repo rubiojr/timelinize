@@ -15,6 +15,8 @@ RUN pacman -Syu --noconfirm \
     openssh \
     zip \
     procps-ng \
+    neovim \
+    less \
     libheif
 
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v1.60.3
