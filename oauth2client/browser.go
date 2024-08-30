@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // Browser gets an OAuth2 code via the web browser.
@@ -85,9 +86,9 @@ func (b Browser) Get(ctx context.Context, expectedStateVal, authCodeURL string) 
 
 		// must disable keep-alives, otherwise repeated calls to
 		// this method can block indefinitely in some weird bug
-		srv := http.Server{Handler: http.HandlerFunc(handler)}
+		srv := http.Server{Handler: http.HandlerFunc(handler), ReadHeaderTimeout: 30 * time.Second}
 		srv.SetKeepAlivesEnabled(false)
-		srv.Serve(ln)
+		srv.Serve(ln) //nolint:errcheck
 	}()
 
 	err = openBrowser(authCodeURL)
@@ -118,7 +119,7 @@ func openBrowser(url string) error {
 
 	if runtime.GOOS == "windows" {
 		// escape characters not allowed by cmd
-		url = strings.Replace(url, "&", `^&`, -1)
+		url = strings.ReplaceAll(url, "&", `^&`)
 	}
 
 	all := osCommand[runtime.GOOS]
@@ -133,7 +134,7 @@ func openBrowser(url string) error {
 	err := cmd.Run()
 
 	if err != nil {
-		return fmt.Errorf("%v: %s", err, buf.String())
+		return fmt.Errorf("%w: %s", err, buf.String())
 	}
 
 	return nil

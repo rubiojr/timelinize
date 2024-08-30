@@ -20,6 +20,7 @@ package generic
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net/textproto"
@@ -67,7 +68,7 @@ func (fi fileItem) timestampFromExif() (time.Time, error) {
 
 	file, err := fi.fsys.Open(fi.path)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("unable to open file to attempt reading EXIF: %s", err)
+		return time.Time{}, fmt.Errorf("unable to open file to attempt reading EXIF: %w", err)
 	}
 	defer file.Close()
 
@@ -87,7 +88,8 @@ func (fi fileItem) timestampFromDateHeader() (time.Time, error) {
 	defer file.Close()
 
 	// date header should probably be in the first kilobyte of file
-	bufr := bufio.NewReader(io.LimitReader(file, 1024))
+	const kb = 1024
+	bufr := bufio.NewReader(io.LimitReader(file, kb))
 	tp := textproto.NewReader(bufr)
 	header, err := tp.ReadMIMEHeader()
 	if err != nil {
@@ -96,7 +98,7 @@ func (fi fileItem) timestampFromDateHeader() (time.Time, error) {
 
 	date := header.Get("Date")
 	if date == "" {
-		return time.Time{}, fmt.Errorf("headers found, but no Date field")
+		return time.Time{}, errors.New("headers found, but no Date field")
 	}
 
 	return time.Parse(time.RFC1123Z, date)
@@ -171,7 +173,7 @@ func TimestampFromFilePath(fpath string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("no timestamp found in file path: %s", fpath)
 	}
 
-	var candidateTs []foundTimestamp
+	var candidateTimestamp []foundTimestamp
 
 	// some timestamp formats overlap ("2006/1" is also in "2006/1/2",
 	// but the latter is more specific), so find those which literally
@@ -180,28 +182,27 @@ func TimestampFromFilePath(fpath string) (time.Time, error) {
 	// assured they are part of the same timestamp; then between those,
 	// keep the more specific one
 candidates:
-	for i := 0; i < len(tsFound); i++ {
-		// iTs is our candidate timestamp, we'll compare it to every other
+	for i := range len(tsFound) {
+		// tsI is our candidate timestamp, we'll compare it to every other
 		// timestamp and see if we need to weed it out
-		iTs := tsFound[i]
+		tsI := tsFound[i]
 
-		for j := 0; j < len(tsFound); j++ {
+		for j := range len(tsFound) {
 			if j == i {
 				continue
 			}
-			jTs := tsFound[j] // jTs is the competitor
+			tsJ := tsFound[j] // tsJ is the competitor
 
 			// we're looking for joint overlap where start or end are equal
 			// or if one is entirely contained within the other;
 			// disjoint overlap exists if start OR end of one is between start AND end of other;
 			// hard to say which one is right, but likely at least one is wrong...
 			// for example:  "4 January 2022/3:59PM" has "2022/3" crossing into both, but is wrong
-			if iTs.start == jTs.start || iTs.end == jTs.end || // same start or same end
-				(iTs.start > jTs.start && iTs.end < jTs.end) || // jTs contains iTs
-				(iTs.start < jTs.start && iTs.end > jTs.end) || // iTs contains jTs
-				(iTs.start > jTs.start && iTs.start < jTs.end) || // iTs starts inside jTs (disjoint overlap)
-				(iTs.end > jTs.start && iTs.end < jTs.end) { // iTs ends inside jTs (disjoint overlap)
-
+			if tsI.start == tsJ.start || tsI.end == tsJ.end || // same start or same end
+				(tsI.start > tsJ.start && tsI.end < tsJ.end) || // tsJ contains tsI
+				(tsI.start < tsJ.start && tsI.end > tsJ.end) || // tsI contains tsJ
+				(tsI.start > tsJ.start && tsI.start < tsJ.end) || // tsI starts inside tsJ (disjoint overlap)
+				(tsI.end > tsJ.start && tsI.end < tsJ.end) { // tsI ends inside tsJ (disjoint overlap)
 				// if it was joint overlap, we can presume they are the same timestamp,
 				// but likely have different components specified in them; keep the more
 				// specific one, which SHOULD be the "later" or "higher" time value,
@@ -210,8 +211,8 @@ candidates:
 				// 2019 ("10-09-19"), where the higher date is clearly wrong here, so I've
 				// settled on always going with the longest substring match
 
-				// if jTs is more specific let iTs drop
-				if (jTs.end - jTs.start) > (iTs.end - iTs.start) {
+				// if tsJ is more specific let tsI drop
+				if (tsJ.end - tsJ.start) > (tsI.end - tsI.start) {
 					continue candidates
 				}
 			}
@@ -219,32 +220,32 @@ candidates:
 
 		// if we got here, the inner loop didn't skip this candidate,
 		// so we can presumably use it for next phase
-		candidateTs = append(candidateTs, iTs)
+		candidateTimestamp = append(candidateTimestamp, tsI)
 	}
 
 	// if we ended up skipping all timestamps because they were
 	// all positioned confusingly, keep them all and simply try
 	// sorting (returning none when we found some seems unwise)
-	if len(candidateTs) == 0 {
-		candidateTs = tsFound
+	if len(candidateTimestamp) == 0 {
+		candidateTimestamp = tsFound
 	}
 
 	// we may have found multiple timestamps, for example one that
 	// contains a date and another which contains time; try to find
 	// them and combine them
-	var dateTs, timeTs time.Time
-	for _, ts := range candidateTs {
-		if (!zeroDate(ts.ts) && zeroTime(ts.ts)) && ts.ts.After(dateTs) {
-			dateTs = ts.ts
+	var tsDate, tsTime time.Time
+	for _, ts := range candidateTimestamp {
+		if (!zeroDate(ts.ts) && zeroTime(ts.ts)) && ts.ts.After(tsDate) {
+			tsDate = ts.ts
 		}
-		if (zeroDate(ts.ts) && !zeroTime(ts.ts)) && timeOfDayIsLater(ts.ts, timeTs) {
-			timeTs = ts.ts
+		if (zeroDate(ts.ts) && !zeroTime(ts.ts)) && timeOfDayIsLater(ts.ts, tsTime) {
+			tsTime = ts.ts
 		}
 	}
 	// TODO: we should still try to combine separate year, month, and day timestamps... somehow...
-	if !dateTs.IsZero() && !timeTs.IsZero() {
-		year, month, day := dateTs.Date()
-		return timeTs.AddDate(year, int(month)-1, day-1).Local(), nil
+	if !tsDate.IsZero() && !tsTime.IsZero() {
+		year, month, day := tsDate.Date()
+		return tsTime.AddDate(year, int(month)-1, day-1).Local(), nil
 	}
 
 	// TODO: a date like "1959" should maybe set a timespan, from the first to the last second of that year, rather than just second 0 of that year?
@@ -255,16 +256,16 @@ candidates:
 	// sample so far (some of which are in the test cases):
 	// - Prefer longest substring match (most specific)
 	// - Prefer last one (filename is likely more correct than prior path components)
-	sort.Slice(candidateTs, func(i, j int) bool {
-		iLen := candidateTs[i].end - candidateTs[i].start
-		jLen := candidateTs[j].end - candidateTs[j].start
+	sort.Slice(candidateTimestamp, func(i, j int) bool {
+		iLen := candidateTimestamp[i].end - candidateTimestamp[i].start
+		jLen := candidateTimestamp[j].end - candidateTimestamp[j].start
 		if iLen != jLen {
 			return iLen > jLen
 		}
-		return candidateTs[i].start > candidateTs[j].start
+		return candidateTimestamp[i].start > candidateTimestamp[j].start
 	})
 
-	return candidateTs[0].ts, nil
+	return candidateTimestamp[0].ts, nil
 }
 
 // zeroDate returns true if the date component of t is zero-valued
