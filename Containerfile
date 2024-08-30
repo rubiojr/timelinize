@@ -1,5 +1,5 @@
 # Use Arch Linux as the base image
-FROM archlinux:latest AS builder
+FROM archlinux:latest
 
 # Install necessary dependencies
 RUN pacman -Syu --noconfirm \
@@ -10,14 +10,13 @@ RUN pacman -Syu --noconfirm \
     ffmpeg \
     vim \
     lsd \
+    lsof \
+    git \
+    openssh \
+    zip \
+    procps-ng \
     libheif
 
-# Set the working directory inside the container
-WORKDIR /app
-COPY . .
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin v1.60.3
 
-ENV CGO_ENABLED=1
-RUN go env -w GOCACHE=/go/cache
-RUN go env -w GOMODCACHE=/go/modcache
-RUN --mount=type=cache,target=/go/modcache go mod download
-RUN --mount=type=cache,target=/go/modcache --mount=type=cache,target=/go/cache go build -o /app/timelinize
+RUN echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/toolbox

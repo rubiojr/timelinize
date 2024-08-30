@@ -1,9 +1,21 @@
 #!/bin/sh
 set -e
+set -o pipefail
+
+recreate() {
+	toolbox rm timelinize-dev -f
+	podman image rm localhost/timelinize-dev-image
+}
+
+if [ "$1" = "--recreate" ]; then
+	recreate
+fi
 
 podman image list | grep timelinize-dev-image || {
 	podman build --squash --tag timelinize-dev-image .
 	toolbox create -i timelinize-dev-image timelinize-dev
 }
+
+toolbox list | grep timelinize-dev || toolbox create -i timelinize-dev-image timelinize-dev
 
 toolbox enter timelinize-dev
