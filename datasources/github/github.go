@@ -167,23 +167,18 @@ func (c *GitHub) process(ctx context.Context, path string, itemChan chan<- *time
 				Classification:       timeline.ClassBookmark,
 				Timestamp:            repo.StarredAt,
 				IntermediateLocation: path,
-				Content: timeline.ItemData{
-					Filename:  filepath.Base(path),
-					Data:      timeline.StringData(repo.HTMLURL),
-					MediaType: "text/plain",
-				},
 				Metadata: timeline.Metadata{
 					"ID":          repo.ID,
 					"Name":        repo.Name,
-					"Full Name":   repo.FullName,
+					"Full name":   repo.FullName,
 					"URL":         repo.HTMLURL,
 					"Description": repo.Description,
-					"Created At":  repo.CreatedAt,
+					"Created at":  repo.CreatedAt,
 					"Stargazers":  repo.StargazersCount,
 					"Topics":      repo.Topics,
 					"Language":    repo.Language,
 					"Private":     repo.Private,
-					"Starred At":  repo.StarredAt,
+					"Starred at":  repo.StarredAt,
 				},
 			}
 
